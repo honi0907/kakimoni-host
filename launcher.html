@@ -79,9 +79,8 @@
     background: #0f172a;
     color: #64748b;
     min-height: 26px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
   }
   .status.ready { color: #4ade80; }
   .status.error { color: #f87171; }
@@ -99,6 +98,16 @@
     user-select: none;
   }
   .mini-note { font-size: 0.75rem; color: #64748b; line-height: 1.5; }
+  .quick-guide {
+    background: #10223f;
+    border: 1px solid #1d4ed8;
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: #bfdbfe;
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+  .quick-guide strong { color: #ffffff; }
 
   /* QRモーダル */
   #qr-modal {
@@ -137,6 +146,11 @@
 
 <h2>🎛️ KakiMoni 親機 サーバー接続ランチャー</h2>
 
+<div class="quick-guide">
+  <strong>いつもの使い方（かんたん）:</strong>
+  1) サーバー起動 → 2) 子機の更新ファイルを選択 → 3) 子機へ更新を登録
+</div>
+
 <div class="launcher-grid">
 
 <!-- サーバー設定 -->
@@ -172,10 +186,13 @@
 
 <!-- アプリ更新配信 -->
 <div class="section">
-  <div class="section-title">子機アップデート配信（かんたん）</div>
+  <div class="section-title">子機に更新を送る（推奨）</div>
   <div class="field">
     <label>更新バージョン（省略可）</label>
-    <input id="updateVersion" type="text" placeholder="例: 1.0.1">
+    <div class="row">
+      <input id="updateVersion" type="text" placeholder="例: 20260517-143500">
+      <button class="btn btn-slate" id="btnSetNowVersion" type="button">現在日時</button>
+    </div>
   </div>
   <div class="field">
     <label>更新ファイル（.exe）</label>
@@ -188,12 +205,12 @@
     <label>メモ（任意）</label>
     <input id="updateNotes" type="text" placeholder="例: 文字サイズ調整・不具合修正">
   </div>
-  <button class="btn btn-blue btn-full" id="btnQuickPublishClient">子機に更新を登録</button>
-  <p class="mini-note">バージョンが空欄なら自動で日付バージョンを採番します。</p>
+  <button class="btn btn-blue btn-full" id="btnQuickPublishClient">子機へ更新を登録</button>
+  <p class="mini-note">バージョンが空欄なら自動で日時バージョンを採番します（例: 20260517-143500）。</p>
   <div class="status" id="updateStatus">未登録</div>
 
   <details class="advanced">
-    <summary>詳細: 他アプリ配信（親機 / レイアウト）</summary>
+    <summary>上級者向け: 他アプリ配信（親機 / レイアウト）</summary>
     <div class="field" style="margin-top:8px;">
       <label>対象アプリ</label>
       <select id="updateChannel" title="更新対象アプリ">
@@ -206,10 +223,15 @@
   </details>
 </div>
 
-<!-- GitHub Releases 取り込み -->
+<!-- 親機自身の更新 -->
 <div class="section">
+  <div class="section-title">親機自身の更新</div>
+  <p class="mini-note">通常は下のボタンだけ使えばOKです。</p>
+  <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
+  <div class="status" id="hostSelfUpdateStatus">未確認</div>
+
   <details class="advanced">
-    <summary>詳細: GitHub Release 連携</summary>
+    <summary>上級者向け: GitHub Releaseから取り込み（通常不要）</summary>
   <div class="section-title">GitHub Releases から取り込み</div>
   <div class="field">
     <label>リポジトリ (owner/repo)</label>
@@ -232,10 +254,9 @@
     <label>GitHub Token（private repo時のみ、任意）</label>
     <input id="ghToken" type="text" placeholder="ghp_xxx または fine-grained token">
   </div>
+  <p class="mini-note">この機能は、対象リポジトリにReleaseが作成済みのときだけ使えます。</p>
   <button class="btn btn-blue btn-full" id="btnImportFromRelease">Releaseから取得して親機に登録</button>
   <div class="status" id="releaseStatus">未取得</div>
-  <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
-  <div class="status" id="hostSelfUpdateStatus">未確認</div>
   </details>
 </div>
 
@@ -318,8 +339,24 @@ function makeAutoVersion() {
   const d = String(now.getDate()).padStart(2, '0');
   const hh = String(now.getHours()).padStart(2, '0');
   const mm = String(now.getMinutes()).padStart(2, '0');
-  return `${y}.${m}${d}.${hh}${mm}`;
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${y}${m}${d}-${hh}${mm}${ss}`;
 }
+
+function formatNowLabel() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
+}
+
+document.getElementById('btnSetNowVersion').addEventListener('click', () => {
+  document.getElementById('updateVersion').value = makeAutoVersion();
+});
 
 // モニター情報を取得して表示
 ipcRenderer.invoke('get-displays').then(displays => {
@@ -509,14 +546,16 @@ document.getElementById('btnImportFromRelease').addEventListener('click', async 
 });
 
 document.getElementById('btnHostSelfUpdate').addEventListener('click', async () => {
-  const repo = document.getElementById('ghRepo').value.trim() || DEFAULT_RELEASE_REPOS.host;
+  // 親機自身の更新は常に親機リポジトリを参照する
+  const repo = DEFAULT_RELEASE_REPOS.host;
   const releaseTag = document.getElementById('ghTag').value.trim();
-  const assetPattern = document.getElementById('ghAssetPattern').value.trim() || DEFAULT_ASSET_PATTERNS.host;
+  const assetPattern = DEFAULT_ASSET_PATTERNS.host;
   const versionOverride = document.getElementById('ghVersionOverride').value.trim();
   const token = document.getElementById('ghToken').value.trim();
   const st = document.getElementById('hostSelfUpdateStatus');
 
-  st.textContent = '更新確認中...';
+  const checkedAt = formatNowLabel();
+  st.textContent = `更新確認中... (${repo}) [${checkedAt}]`;
   st.className = 'status';
 
   const info = await ipcRenderer.invoke('check-host-self-update-from-github', {
@@ -528,13 +567,13 @@ document.getElementById('btnHostSelfUpdate').addEventListener('click', async () 
   });
 
   if (!info || !info.ok) {
-    st.textContent = `確認失敗: ${info?.error || 'unknown error'}`;
+    st.textContent = `確認失敗: ${info?.error || 'unknown error'} (参照: ${repo}) [${checkedAt}]`;
     st.className = 'status error';
     return;
   }
 
   if (!info.available) {
-    st.textContent = `最新です (現在 ${info.currentVersion} / 最新 ${info.latestVersion})`;
+    st.textContent = `最新です (現在 ${info.currentVersion} / 最新 ${info.latestVersion}) [確認: ${checkedAt}]`;
     st.className = 'status ready';
     return;
   }

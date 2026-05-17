@@ -36,8 +36,12 @@ function normalizeVersion(input) {
 }
 
 function compareVersions(a, b) {
-  const pa = String(a || '0').split(/[._-]/).map(s => parseInt(s, 10) || 0);
-  const pb = String(b || '0').split(/[._-]/).map(s => parseInt(s, 10) || 0);
+  const parsePart = (part) => {
+    const m = String(part || '').match(/\d+/);
+    return m ? parseInt(m[0], 10) : 0;
+  };
+  const pa = String(a || '0').split(/[._-]/).map(parsePart);
+  const pb = String(b || '0').split(/[._-]/).map(parsePart);
   const len = Math.max(pa.length, pb.length);
   for (let i = 0; i < len; i++) {
     const va = pa[i] || 0;
