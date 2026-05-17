@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>KakiMoni 親機 - サーバー接続ランチャー</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Montserrat', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 18px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+  }
+  h2 { font-size: 1.1rem; color: #7dd3fc; }
+  .launcher-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(320px, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  .section-full {
+    grid-column: 1 / -1;
+  }
+  .section {
+    background: #1e293b;
+    border-radius: 3px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .section-title { font-size: 0.78rem; color: #64748b; font-weight: bold; letter-spacing: 0.05em; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  label { font-size: 0.8rem; color: #94a3b8; }
+  .row { display: flex; gap: 6px; }
+  input[type=text], input[type=number], select {
+    flex: 1;
+    padding: 8px 10px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 3px;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    min-width: 0;
+  }
+  .btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+    white-space: nowrap;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: box-shadow 0.1s, transform 0.1s;
+  }
+  .btn:hover  { box-shadow: 0 3px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15); transform: translateY(1px); }
+  .btn:active { box-shadow: 0 1px 0 rgba(0,0,0,0.45), inset 0 2px 4px rgba(0,0,0,0.3); transform: translateY(3px); }
+  .btn-blue    { background: linear-gradient(180deg,#0284c7 0%,#0369a1 100%); color: #fff; }
+  .btn-slate   { background: linear-gradient(180deg,#475569 0%,#334155 100%); color: #e2e8f0; }
+  .btn-green   { background: linear-gradient(180deg,#16a34a 0%,#15803d 100%); color: #fff; }
+  .btn-red     { background: linear-gradient(180deg,#dc2626 0%,#b91c1c 100%); color: #fff; }
+  .btn:disabled { opacity: 0.35; cursor: default; transform: none; box-shadow: 0 4px 0 rgba(0,0,0,0.45); }
+  .btn-full { width: 100%; padding: 10px; font-size: 0.95rem; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-row .btn { flex: 1; }
+  .status {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: #0f172a;
+    color: #64748b;
+    min-height: 26px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .status.ready { color: #4ade80; }
+  .status.error { color: #f87171; }
+
+  /* QRモーダル */
+  #qr-modal {
+    display: none;
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.75);
+    align-items: center; justify-content: center;
+  }
+  #qr-modal.show { display: flex; }
+  .qr-box {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    min-width: 220px;
+  }
+  .qr-box canvas, .qr-box img { border-radius: 6px; }
+  .qr-url-text {
+    font-size: 0.8rem; color: #7dd3fc; word-break: break-all; text-align: center;
+  }
+  .qr-close {
+    padding: 6px 20px; background: #334155; border: none; border-radius: 4px;
+    color: #e2e8f0; cursor: pointer; font-size: 0.85rem;
+  }
+  .qr-close:hover { background: #475569; }
+
+  @media (max-width: 820px) {
+    .launcher-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+
+<h2>🎛️ KakiMoni 親機 サーバー接続ランチャー</h2>
+
+<div class="launcher-grid">
+
+<!-- サーバー設定 -->
+<div class="section">
+  <div class="section-title">サーバー設定</div>
+  <div class="field">
+    <label>kakimoniフォルダ（server.jsの場所）</label>
+    <div class="row">
+      <input id="serverPath" type="text" placeholder="フォルダを選択してください">
+      <button class="btn btn-slate" id="btnBrowse">参照</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>ポート</label>
+    <input id="port" type="number" value="3000" style="max-width:90px;" title="ポート番号">
+  </div>
+  <div class="field">
+    <label>使用ネットワークアダプター</label>
+    <select id="ifaceSelect" title="使用ネットワークアダプター">
+      <option value="">自動（最初に検出）</option>
+    </select>
+  </div>
+  <button class="btn btn-blue btn-full" id="btnStart">サーバー起動</button>
+  <div class="status" id="status">待機中</div>
+  <div id="ip-display" style="display:none; font-size:0.85rem; background:#0f172a;
+       border:1px solid #1d4ed8; border-radius:3px; padding:7px 10px; color:#93c5fd;
+       display:none; align-items:center; gap:8px;">
+    <span style="flex:1;">子機のサーバーURL：<span id="ip-url" style="color:#7dd3fc; font-weight:bold; user-select:all;"></span></span>
+    <button id="btnCopyUrl" class="btn btn-slate" style="padding:4px 10px; font-size:0.8rem;">コピー</button>
+    <button id="btnQr" class="btn btn-slate" style="padding:4px 10px; font-size:0.8rem;">QR</button>
+  </div>
+</div>
+
+<!-- アプリ更新配信 -->
+<div class="section">
+  <div class="section-title">アプリ更新配信（LAN）</div>
+  <div class="field">
+    <label>対象アプリ</label>
+    <select id="updateChannel" title="更新対象アプリ">
+      <option value="client">子機 client</option>
+      <option value="host">親機 host</option>
+      <option value="layout">レイアウト layout</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>更新バージョン</label>
+    <input id="updateVersion" type="text" placeholder="例: 1.0.1">
+  </div>
+  <div class="field">
+    <label>更新ファイル（.exe）</label>
+    <div class="row">
+      <input id="updateExePath" type="text" placeholder=".exe を選択してください" readonly>
+      <button class="btn btn-slate" id="btnPickUpdateExe">参照</button>
+    </div>
+  </div>
+  <div class="field">
+    <label>メモ（任意）</label>
+    <input id="updateNotes" type="text" placeholder="例: 文字サイズ調整・不具合修正">
+  </div>
+  <button class="btn btn-blue btn-full" id="btnPublishUpdate">更新を親サーバーに登録</button>
+  <div class="status" id="updateStatus">未登録</div>
+</div>
+
+<!-- GitHub Releases 取り込み -->
+<div class="section">
+  <div class="section-title">GitHub Releases から取り込み</div>
+  <div class="field">
+    <label>リポジトリ (owner/repo)</label>
+    <input id="ghRepo" type="text" placeholder="例: your-org/kakimoni-release">
+  </div>
+  <div class="field">
+    <label>リリースタグ（任意）</label>
+    <input id="ghTag" type="text" placeholder="空欄なら latest">
+  </div>
+  <div class="field">
+    <label>対象アセット名のキーワード（任意）</label>
+    <input id="ghAssetPattern" type="text" placeholder="例: client">
+  </div>
+  <div class="field">
+    <label>バージョン上書き（任意）</label>
+    <input id="ghVersionOverride" type="text" placeholder="例: 1.0.5">
+  </div>
+  <div class="field">
+    <label>GitHub Token（private repo時のみ、任意）</label>
+    <input id="ghToken" type="text" placeholder="ghp_xxx または fine-grained token">
+  </div>
+  <button class="btn btn-blue btn-full" id="btnImportFromRelease">Releaseから取得して親機に登録</button>
+  <div class="status" id="releaseStatus">未取得</div>
+  <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
+  <div class="status" id="hostSelfUpdateStatus">未確認</div>
+</div>
+
+<!-- QRコードモーダル -->
+<div id="qr-modal">
+  <div class="qr-box">
+    <div style="font-size:0.85rem; color:#94a3b8;">子機のサーバーURL</div>
+    <img id="qr-img" src="" alt="QR" width="200" height="200">
+    <div class="qr-url-text" id="qr-url-text"></div>
+    <button class="qr-close" id="btnQrClose">閉じる</button>
+  </div>
+</div>
+
+<!-- 操作 -->
+<div class="section section-full">
+  <div class="section-title">画面操作</div>
+  <div id="display-info" style="font-size:0.78rem; color:#64748b;">モニター情報を取得中...</div>
+  <div class="btn-row">
+    <button class="btn btn-green" id="btnMain" disabled>親機画面（従来）</button>
+    <button class="btn btn-blue" id="btnMainV2" disabled>親機画面（新UI）</button>
+    <button class="btn btn-slate" id="btnDisplay" disabled>セカンド画面を開く</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+let currentPort = 3000;
+let displayOpen = false;
+
+// モニター情報を取得して表示
+ipcRenderer.invoke('get-displays').then(displays => {
+  const el = document.getElementById('display-info');
+  const lines = displays.map(d => {
+    const tag = d.isPrimary ? '【プライマリ】' : '【拡張】';
+    const scale = d.scaleFactor !== 1 ? `  倍率×${d.scaleFactor}  実解像度 ${Math.round(d.width * d.scaleFactor)}×${Math.round(d.height * d.scaleFactor)}` : '';
+    return `${tag} ${d.width}×${d.height}${scale}`;
+  });
+  el.textContent = lines.join('　／　');
+});
+
+// インターフェース一覧を取得してドロップダウンを構築
+ipcRenderer.invoke('get-interfaces').then(ifaces => {
+  const sel = document.getElementById('ifaceSelect');
+  ifaces.forEach(({ name, address }) => {
+    const opt = document.createElement('option');
+    opt.value = address;
+    opt.textContent = `${name}  (${address})`;
+    sel.appendChild(opt);
+  });
+  const saved = localStorage.getItem('host_bindIp');
+  if (saved) sel.value = saved;
+});
+
+// デフォルトパスと前回設定を復元
+ipcRenderer.invoke('get-default-path').then(defaultPath => {
+  const saved = localStorage.getItem('host_serverPath');
+  document.getElementById('serverPath').value = saved || defaultPath;
+});
+const savedPort = localStorage.getItem('host_port');
+if (savedPort) document.getElementById('port').value = savedPort;
+const savedGhRepo = localStorage.getItem('host_ghRepo');
+if (savedGhRepo) document.getElementById('ghRepo').value = savedGhRepo;
+const savedGhTag = localStorage.getItem('host_ghTag');
+if (savedGhTag) document.getElementById('ghTag').value = savedGhTag;
+const savedGhPattern = localStorage.getItem('host_ghAssetPattern');
+if (savedGhPattern) document.getElementById('ghAssetPattern').value = savedGhPattern;
+const savedGhOverride = localStorage.getItem('host_ghVersionOverride');
+if (savedGhOverride) document.getElementById('ghVersionOverride').value = savedGhOverride;
+const savedUpdateChannel = localStorage.getItem('host_updateChannel');
+if (savedUpdateChannel) document.getElementById('updateChannel').value = savedUpdateChannel;
+
+document.getElementById('btnBrowse').addEventListener('click', async () => {
+  const p = await ipcRenderer.invoke('select-folder');
+  if (p) document.getElementById('serverPath').value = p;
+});
+
+document.getElementById('btnStart').addEventListener('click', () => {
+  const serverPath = document.getElementById('serverPath').value.trim();
+  currentPort = parseInt(document.getElementById('port').value) || 3000;
+  const bindIp = document.getElementById('ifaceSelect').value;
+  localStorage.setItem('host_serverPath', serverPath);
+  localStorage.setItem('host_port', currentPort);
+  localStorage.setItem('host_bindIp', bindIp);
+  setStatus('起動中...', '');
+  document.getElementById('btnStart').textContent = '起動中...';
+  document.getElementById('btnStart').disabled = true;
+  ipcRenderer.send('start-server', { serverPath, port: currentPort, bindIp: bindIp || null });
+});
+
+document.getElementById('btnPickUpdateExe').addEventListener('click', async () => {
+  const p = await ipcRenderer.invoke('select-update-exe');
+  if (p) document.getElementById('updateExePath').value = p;
+});
+
+document.getElementById('btnPublishUpdate').addEventListener('click', async () => {
+  const channel = document.getElementById('updateChannel').value;
+  const serverPath = document.getElementById('serverPath').value.trim();
+  const version = document.getElementById('updateVersion').value.trim();
+  const sourceExePath = document.getElementById('updateExePath').value.trim();
+  const notes = document.getElementById('updateNotes').value.trim();
+  const st = document.getElementById('updateStatus');
+
+  localStorage.setItem('host_updateChannel', channel);
+
+  st.textContent = '更新登録中...';
+  st.className = 'status';
+
+  const result = await ipcRenderer.invoke('publish-app-update', {
+    channel,
+    serverPath,
+    version,
+    sourceExePath,
+    notes,
+  });
+
+  if (!result || !result.ok) {
+    st.textContent = `登録失敗: ${result?.error || 'unknown error'}`;
+    st.className = 'status error';
+    return;
+  }
+
+  st.textContent = `登録完了 [${result.channel}]: v${result.version} (${result.fileName})`;
+  st.className = 'status ready';
+});
+
+document.getElementById('btnImportFromRelease').addEventListener('click', async () => {
+  const channel = document.getElementById('updateChannel').value;
+  const serverPath = document.getElementById('serverPath').value.trim();
+  const repo = document.getElementById('ghRepo').value.trim();
+  const releaseTag = document.getElementById('ghTag').value.trim();
+  const assetPattern = document.getElementById('ghAssetPattern').value.trim();
+  const versionOverride = document.getElementById('ghVersionOverride').value.trim();
+  const token = document.getElementById('ghToken').value.trim();
+  const notes = document.getElementById('updateNotes').value.trim();
+  const st = document.getElementById('releaseStatus');
+  const updateSt = document.getElementById('updateStatus');
+
+  localStorage.setItem('host_ghRepo', repo);
+  localStorage.setItem('host_ghTag', releaseTag);
+  localStorage.setItem('host_ghAssetPattern', assetPattern);
+  localStorage.setItem('host_ghVersionOverride', versionOverride);
+  localStorage.setItem('host_updateChannel', channel);
+
+  st.textContent = 'Release取得中...';
+  st.className = 'status';
+
+  const result = await ipcRenderer.invoke('publish-app-update-from-github-release', {
+    channel,
+    serverPath,
+    repo,
+    releaseTag,
+    assetPattern,
+    versionOverride,
+    token,
+    notes,
+  });
+
+  if (!result || !result.ok) {
+    st.textContent = `取得失敗: ${result?.error || 'unknown error'}`;
+    st.className = 'status error';
+    return;
+  }
+
+  st.textContent = `取得完了 [${result.channel}]: ${result.assetName} -> v${result.version}`;
+  st.className = 'status ready';
+  updateSt.textContent = `登録完了 [${result.channel}]: v${result.version} (${result.fileName})`;
+  updateSt.className = 'status ready';
+  document.getElementById('updateVersion').value = result.version;
+  document.getElementById('updateExePath').value = `(GitHub) ${result.assetName}`;
+});
+
+document.getElementById('btnHostSelfUpdate').addEventListener('click', async () => {
+  const repo = document.getElementById('ghRepo').value.trim();
+  const releaseTag = document.getElementById('ghTag').value.trim();
+  const assetPattern = document.getElementById('ghAssetPattern').value.trim();
+  const versionOverride = document.getElementById('ghVersionOverride').value.trim();
+  const token = document.getElementById('ghToken').value.trim();
+  const st = document.getElementById('hostSelfUpdateStatus');
+
+  if (!repo) {
+    st.textContent = '確認失敗: リポジトリを入力してください';
+    st.className = 'status error';
+    return;
+  }
+
+  st.textContent = '更新確認中...';
+  st.className = 'status';
+
+  const info = await ipcRenderer.invoke('check-host-self-update-from-github', {
+    repo,
+    releaseTag,
+    assetPattern,
+    versionOverride,
+    token,
+  });
+
+  if (!info || !info.ok) {
+    st.textContent = `確認失敗: ${info?.error || 'unknown error'}`;
+    st.className = 'status error';
+    return;
+  }
+
+  if (!info.available) {
+    st.textContent = `最新です (現在 ${info.currentVersion} / 最新 ${info.latestVersion})`;
+    st.className = 'status ready';
+    return;
+  }
+
+  const ok = window.confirm(`親機を更新しますか？\n${info.currentVersion} -> ${info.latestVersion}\nasset: ${info.assetName}`);
+  if (!ok) {
+    st.textContent = '更新をキャンセルしました';
+    st.className = 'status';
+    return;
+  }
+
+  st.textContent = '更新ファイルをダウンロード中...';
+  st.className = 'status';
+
+  const dl = await ipcRenderer.invoke('download-host-self-update-from-github', {
+    downloadUrl: info.downloadUrl,
+    assetName: info.assetName,
+    token,
+  });
+  if (!dl || !dl.ok) {
+    st.textContent = `ダウンロード失敗: ${dl?.error || 'unknown error'}`;
+    st.className = 'status error';
+    return;
+  }
+
+  st.textContent = '更新適用中...';
+  st.className = 'status';
+
+  const ap = await ipcRenderer.invoke('apply-host-self-update', { downloadedPath: dl.downloadedPath });
+  if (!ap || !ap.ok) {
+    st.textContent = `更新失敗: ${ap?.error || 'unknown error'}`;
+    st.className = 'status error';
+    return;
+  }
+
+  st.textContent = '再起動します...';
+  st.className = 'status ready';
+});
+
+document.getElementById('btnMain').addEventListener('click', () => {
+  ipcRenderer.send('open-main', { port: currentPort });
+});
+
+document.getElementById('btnMainV2').addEventListener('click', () => {
+  ipcRenderer.send('open-main-v2', { port: currentPort });
+});
+
+document.getElementById('btnDisplay').addEventListener('click', () => {
+  ipcRenderer.send('toggle-display', { port: currentPort });
+});
+
+ipcRenderer.on('server-log', (e, text) => {
+  const clean = text.trim().replace(/\s+/g, ' ');
+  if (clean.length > 0) setStatus(clean, '');
+});
+
+const QRCode = require('qrcode');
+let currentServerUrl = '';
+
+async function updateQrCode(url) {
+  currentServerUrl = url;
+  try {
+    const dataUrl = await QRCode.toDataURL(url, { width: 200, margin: 2, color: { dark: '#000000', light: '#ffffff' } });
+    document.getElementById('qr-img').src = dataUrl;
+    document.getElementById('qr-url-text').textContent = url;
+  } catch (e) {}
+}
+
+document.getElementById('btnQr').addEventListener('click', () => {
+  if (!currentServerUrl) return;
+  document.getElementById('qr-modal').classList.add('show');
+});
+document.getElementById('btnQrClose').addEventListener('click', () => {
+  document.getElementById('qr-modal').classList.remove('show');
+});
+document.getElementById('qr-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('qr-modal')) {
+    document.getElementById('qr-modal').classList.remove('show');
+  }
+});
+
+ipcRenderer.on('server-ready', (e, { port, ip }) => {
+  currentPort = port;
+  setStatus(`起動完了 ポート ${port}`, 'ready');
+  document.getElementById('btnStart').textContent = 'サーバー再起動';
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnMain').disabled = false;
+  document.getElementById('btnMainV2').disabled = false;
+  document.getElementById('btnDisplay').disabled = false;
+  // IPアドレスを固定表示
+  const ipDisp = document.getElementById('ip-display');
+  const ipUrl  = document.getElementById('ip-url');
+  ipDisp.style.display = 'flex';
+  const serverUrl = `http://${ip}:${port}`;
+  ipUrl.textContent = serverUrl;
+  updateQrCode(serverUrl);
+
+  document.getElementById('btnCopyUrl').onclick = () => {
+    navigator.clipboard.writeText(ipUrl.textContent).then(() => {
+      const btn = document.getElementById('btnCopyUrl');
+      btn.textContent = 'コピー済！';
+      setTimeout(() => { btn.textContent = 'コピー'; }, 1500);
+    });
+  };
+});
+
+ipcRenderer.on('server-error', (e, msg) => {
+  setStatus('エラー: ' + msg, 'error');
+  document.getElementById('btnStart').textContent = 'サーバー起動';
+  document.getElementById('btnStart').disabled = false;
+});
+
+ipcRenderer.on('display-status', (e, open) => {
+  displayOpen = open;
+  const btn = document.getElementById('btnDisplay');
+  btn.textContent = open ? 'セカンド画面を閉じる' : 'セカンド画面を開く';
+  btn.className   = open ? 'btn btn-red' : 'btn btn-slate';
+});
+
+function setStatus(text, cls) {
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+</script>
+</body>
+</html>

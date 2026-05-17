@@ -1,0 +1,17 @@
+{
+  "name": "kakimoni-host",
+  "version": "1.0.0",
+  "description": "KakiMoni 親機アプリ",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-packager . KakiMoni_Host --platform=win32 --arch=x64 --out=dist --overwrite --asar"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-packager": "^17.0.0"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}
