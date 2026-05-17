@@ -81,7 +81,15 @@ function githubRequestJson(url, token) {
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => {
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          return reject(new Error(`GitHub API error ${res.statusCode}: ${body.slice(0, 200)}`));
+          let parsed = null;
+          try {
+            parsed = body ? JSON.parse(body) : null;
+          } catch {}
+          const apiMessage = parsed && parsed.message ? String(parsed.message) : '';
+          if (res.statusCode === 404) {
+            return reject(new Error('GitHub Release が見つかりません。初回は Release を作成してください。'));
+          }
+          return reject(new Error(`GitHub API error ${res.statusCode}${apiMessage ? `: ${apiMessage}` : ''}`));
         }
         try {
           resolve(JSON.parse(body));

@@ -192,6 +192,7 @@
   <div class="field">
     <label>リポジトリ (owner/repo)</label>
     <input id="ghRepo" type="text" placeholder="例: your-org/kakimoni-release">
+    <div class="section-title" id="ghRepoHint">空欄なら自動選択</div>
   </div>
   <div class="field">
     <label>リリースタグ（任意）</label>
@@ -242,6 +243,47 @@
 const { ipcRenderer } = require('electron');
 let currentPort = 3000;
 let displayOpen = false;
+const DEFAULT_RELEASE_REPOS = {
+  client: 'honi0907/kakimoni-client',
+  host: 'honi0907/kakimoni-host',
+  layout: 'honi0907/kakimoni-layout',
+};
+const DEFAULT_ASSET_PATTERNS = {
+  client: 'client',
+  host: 'host',
+  layout: 'layout',
+};
+
+function getSelectedChannel() {
+  return document.getElementById('updateChannel').value || 'client';
+}
+
+function getDefaultRepo(channel) {
+  return DEFAULT_RELEASE_REPOS[channel] || DEFAULT_RELEASE_REPOS.client;
+}
+
+function getDefaultAssetPattern(channel) {
+  return DEFAULT_ASSET_PATTERNS[channel] || '';
+}
+
+function refreshGithubHints() {
+  const channel = getSelectedChannel();
+  const repo = getDefaultRepo(channel);
+  const pattern = getDefaultAssetPattern(channel);
+  document.getElementById('ghRepo').placeholder = `空欄なら ${repo}`;
+  document.getElementById('ghRepoHint').textContent = `空欄なら自動で ${repo} を使います`;
+  document.getElementById('ghAssetPattern').placeholder = `空欄なら ${pattern}`;
+}
+
+function getEffectiveRepo() {
+  const raw = document.getElementById('ghRepo').value.trim();
+  return raw || getDefaultRepo(getSelectedChannel());
+}
+
+function getEffectiveAssetPattern() {
+  const raw = document.getElementById('ghAssetPattern').value.trim();
+  return raw || getDefaultAssetPattern(getSelectedChannel());
+}
 
 // モニター情報を取得して表示
 ipcRenderer.invoke('get-displays').then(displays => {
@@ -284,6 +326,11 @@ const savedGhOverride = localStorage.getItem('host_ghVersionOverride');
 if (savedGhOverride) document.getElementById('ghVersionOverride').value = savedGhOverride;
 const savedUpdateChannel = localStorage.getItem('host_updateChannel');
 if (savedUpdateChannel) document.getElementById('updateChannel').value = savedUpdateChannel;
+refreshGithubHints();
+document.getElementById('updateChannel').addEventListener('change', () => {
+  localStorage.setItem('host_updateChannel', getSelectedChannel());
+  refreshGithubHints();
+});
 
 document.getElementById('btnBrowse').addEventListener('click', async () => {
   const p = await ipcRenderer.invoke('select-folder');
@@ -342,9 +389,9 @@ document.getElementById('btnPublishUpdate').addEventListener('click', async () =
 document.getElementById('btnImportFromRelease').addEventListener('click', async () => {
   const channel = document.getElementById('updateChannel').value;
   const serverPath = document.getElementById('serverPath').value.trim();
-  const repo = document.getElementById('ghRepo').value.trim();
+  const repo = getEffectiveRepo();
   const releaseTag = document.getElementById('ghTag').value.trim();
-  const assetPattern = document.getElementById('ghAssetPattern').value.trim();
+  const assetPattern = getEffectiveAssetPattern();
   const versionOverride = document.getElementById('ghVersionOverride').value.trim();
   const token = document.getElementById('ghToken').value.trim();
   const notes = document.getElementById('updateNotes').value.trim();
@@ -386,18 +433,12 @@ document.getElementById('btnImportFromRelease').addEventListener('click', async 
 });
 
 document.getElementById('btnHostSelfUpdate').addEventListener('click', async () => {
-  const repo = document.getElementById('ghRepo').value.trim();
+  const repo = document.getElementById('ghRepo').value.trim() || DEFAULT_RELEASE_REPOS.host;
   const releaseTag = document.getElementById('ghTag').value.trim();
-  const assetPattern = document.getElementById('ghAssetPattern').value.trim();
+  const assetPattern = document.getElementById('ghAssetPattern').value.trim() || DEFAULT_ASSET_PATTERNS.host;
   const versionOverride = document.getElementById('ghVersionOverride').value.trim();
   const token = document.getElementById('ghToken').value.trim();
   const st = document.getElementById('hostSelfUpdateStatus');
-
-  if (!repo) {
-    st.textContent = '確認失敗: リポジトリを入力してください';
-    st.className = 'status error';
-    return;
-  }
 
   st.textContent = '更新確認中...';
   st.className = 'status';
