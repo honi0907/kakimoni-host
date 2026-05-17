@@ -1,6 +1,6 @@
 {
   "name": "kakimoni-host",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "KakiMoni 親機アプリ",
   "main": "main.js",
   "scripts": {
