@@ -85,6 +85,20 @@
   }
   .status.ready { color: #4ade80; }
   .status.error { color: #f87171; }
+  details.advanced {
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 8px;
+    background: #0b1324;
+  }
+  details.advanced > summary {
+    cursor: pointer;
+    color: #93c5fd;
+    font-size: 0.82rem;
+    font-weight: 600;
+    user-select: none;
+  }
+  .mini-note { font-size: 0.75rem; color: #64748b; line-height: 1.5; }
 
   /* QRモーダル */
   #qr-modal {
@@ -158,17 +172,9 @@
 
 <!-- アプリ更新配信 -->
 <div class="section">
-  <div class="section-title">アプリ更新配信（LAN）</div>
+  <div class="section-title">子機アップデート配信（かんたん）</div>
   <div class="field">
-    <label>対象アプリ</label>
-    <select id="updateChannel" title="更新対象アプリ">
-      <option value="client">子機 client</option>
-      <option value="host">親機 host</option>
-      <option value="layout">レイアウト layout</option>
-    </select>
-  </div>
-  <div class="field">
-    <label>更新バージョン</label>
+    <label>更新バージョン（省略可）</label>
     <input id="updateVersion" type="text" placeholder="例: 1.0.1">
   </div>
   <div class="field">
@@ -182,12 +188,28 @@
     <label>メモ（任意）</label>
     <input id="updateNotes" type="text" placeholder="例: 文字サイズ調整・不具合修正">
   </div>
-  <button class="btn btn-blue btn-full" id="btnPublishUpdate">更新を親サーバーに登録</button>
+  <button class="btn btn-blue btn-full" id="btnQuickPublishClient">子機に更新を登録</button>
+  <p class="mini-note">バージョンが空欄なら自動で日付バージョンを採番します。</p>
   <div class="status" id="updateStatus">未登録</div>
+
+  <details class="advanced">
+    <summary>詳細: 他アプリ配信（親機 / レイアウト）</summary>
+    <div class="field" style="margin-top:8px;">
+      <label>対象アプリ</label>
+      <select id="updateChannel" title="更新対象アプリ">
+        <option value="client">子機 client</option>
+        <option value="host">親機 host</option>
+        <option value="layout">レイアウト layout</option>
+      </select>
+    </div>
+    <button class="btn btn-slate btn-full" id="btnPublishUpdate" style="margin-top:8px;">選択した対象へ登録</button>
+  </details>
 </div>
 
 <!-- GitHub Releases 取り込み -->
 <div class="section">
+  <details class="advanced">
+    <summary>詳細: GitHub Release 連携</summary>
   <div class="section-title">GitHub Releases から取り込み</div>
   <div class="field">
     <label>リポジトリ (owner/repo)</label>
@@ -214,6 +236,7 @@
   <div class="status" id="releaseStatus">未取得</div>
   <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
   <div class="status" id="hostSelfUpdateStatus">未確認</div>
+  </details>
 </div>
 
 <!-- QRコードモーダル -->
@@ -231,10 +254,13 @@
   <div class="section-title">画面操作</div>
   <div id="display-info" style="font-size:0.78rem; color:#64748b;">モニター情報を取得中...</div>
   <div class="btn-row">
-    <button class="btn btn-green" id="btnMain" disabled>親機画面（従来）</button>
-    <button class="btn btn-blue" id="btnMainV2" disabled>親機画面（新UI）</button>
+    <button class="btn btn-blue" id="btnMainV2" disabled>親機画面を開く</button>
     <button class="btn btn-slate" id="btnDisplay" disabled>セカンド画面を開く</button>
   </div>
+  <details class="advanced">
+    <summary>詳細: 旧UIを開く</summary>
+    <button class="btn btn-slate btn-full" id="btnMain" disabled style="margin-top:8px;">親機画面（従来）</button>
+  </details>
 </div>
 
 </div>
@@ -283,6 +309,16 @@ function getEffectiveRepo() {
 function getEffectiveAssetPattern() {
   const raw = document.getElementById('ghAssetPattern').value.trim();
   return raw || getDefaultAssetPattern(getSelectedChannel());
+}
+
+function makeAutoVersion() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  return `${y}.${m}${d}.${hh}${mm}`;
 }
 
 // モニター情報を取得して表示
@@ -353,6 +389,46 @@ document.getElementById('btnStart').addEventListener('click', () => {
 document.getElementById('btnPickUpdateExe').addEventListener('click', async () => {
   const p = await ipcRenderer.invoke('select-update-exe');
   if (p) document.getElementById('updateExePath').value = p;
+});
+
+document.getElementById('btnQuickPublishClient').addEventListener('click', async () => {
+  const channel = 'client';
+  const serverPath = document.getElementById('serverPath').value.trim();
+  const sourceExePath = document.getElementById('updateExePath').value.trim();
+  const notes = document.getElementById('updateNotes').value.trim();
+  const st = document.getElementById('updateStatus');
+
+  if (!sourceExePath) {
+    st.textContent = '登録失敗: 先に更新ファイルを選択してください';
+    st.className = 'status error';
+    return;
+  }
+
+  let version = document.getElementById('updateVersion').value.trim();
+  if (!version) {
+    version = makeAutoVersion();
+    document.getElementById('updateVersion').value = version;
+  }
+
+  st.textContent = '更新登録中...';
+  st.className = 'status';
+
+  const result = await ipcRenderer.invoke('publish-app-update', {
+    channel,
+    serverPath,
+    version,
+    sourceExePath,
+    notes,
+  });
+
+  if (!result || !result.ok) {
+    st.textContent = `登録失敗: ${result?.error || 'unknown error'}`;
+    st.className = 'status error';
+    return;
+  }
+
+  st.textContent = `登録完了 [client]: v${result.version} (${result.fileName})`;
+  st.className = 'status ready';
 });
 
 document.getElementById('btnPublishUpdate').addEventListener('click', async () => {
@@ -545,9 +621,12 @@ ipcRenderer.on('server-ready', (e, { port, ip }) => {
   setStatus(`起動完了 ポート ${port}`, 'ready');
   document.getElementById('btnStart').textContent = 'サーバー再起動';
   document.getElementById('btnStart').disabled = false;
-  document.getElementById('btnMain').disabled = false;
-  document.getElementById('btnMainV2').disabled = false;
-  document.getElementById('btnDisplay').disabled = false;
+  const btnMain = document.getElementById('btnMain');
+  const btnMainV2 = document.getElementById('btnMainV2');
+  const btnDisplay = document.getElementById('btnDisplay');
+  if (btnMain) btnMain.disabled = false;
+  if (btnMainV2) btnMainV2.disabled = false;
+  if (btnDisplay) btnDisplay.disabled = false;
   // IPアドレスを固定表示
   const ipDisp = document.getElementById('ip-display');
   const ipUrl  = document.getElementById('ip-url');
