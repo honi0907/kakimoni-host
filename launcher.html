@@ -160,7 +160,7 @@
 
 <div class="quick-guide">
   <strong>いつもの使い方（かんたん）:</strong>
-  1) サーバー起動 → 2) 子機の更新ファイルを選択 → 3) 子機へ更新を登録
+  1) サーバー起動 → 2) 右の「子機更新」で取得または選択 → 3) 子機へ登録
 </div>
 
 <div class="launcher-grid">
@@ -200,42 +200,20 @@
 <div class="section right-column">
   <div class="section-title">更新（通常は閉じたまま）</div>
   <details class="advanced">
-    <summary>子機に更新を送る（通常は触らない）</summary>
+    <summary>子機更新（取得と送信をまとめて実行）</summary>
     <div class="advanced-body">
+      <button class="btn btn-blue btn-full" id="btnFetchAndPublishClient">GitHubから子機青ソフトを取得して登録</button>
+      <p class="mini-note">通常はこのボタンだけでOKです（kakimoni-client の latest を使用）。</p>
+
       <div class="field">
-        <label>更新バージョン（省略可）</label>
-        <div class="row">
-          <input id="updateVersion" type="text" placeholder="例: 20260517-143500">
-          <button class="btn btn-slate" id="btnSetNowVersion" type="button">現在日時</button>
-        </div>
-      </div>
-      <div class="field">
-        <label>更新ファイル（.exe）</label>
+        <label>更新ファイル（手動指定する場合のみ）</label>
         <div class="row">
           <input id="updateExePath" type="text" placeholder=".exe を選択してください" readonly>
           <button class="btn btn-slate" id="btnPickUpdateExe">参照</button>
         </div>
       </div>
-      <div class="field">
-        <label>メモ（任意）</label>
-        <input id="updateNotes" type="text" placeholder="例: 文字サイズ調整・不具合修正">
-      </div>
-      <button class="btn btn-blue btn-full" id="btnQuickPublishClient">子機へ更新を登録</button>
-      <p class="mini-note">バージョンが空欄なら自動で日時バージョンを採番します（例: 20260517-143500）。</p>
+      <button class="btn btn-slate btn-full" id="btnQuickPublishClient">選んだファイルを子機へ登録</button>
       <div class="status" id="updateStatus">未登録</div>
-
-      <details class="advanced">
-        <summary>上級者向け: 他アプリ配信（親機 / レイアウト）</summary>
-        <div class="field" style="margin-top:8px;">
-          <label>対象アプリ</label>
-          <select id="updateChannel" title="更新対象アプリ">
-            <option value="client">子機 client</option>
-            <option value="host">親機 host</option>
-            <option value="layout">レイアウト layout</option>
-          </select>
-        </div>
-        <button class="btn btn-slate btn-full" id="btnPublishUpdate" style="margin-top:8px;">選択した対象へ登録</button>
-      </details>
     </div>
   </details>
 </div>
@@ -323,10 +301,6 @@ const DEFAULT_ASSET_PATTERNS = {
   layout: 'layout',
 };
 
-function getSelectedChannel() {
-  return document.getElementById('updateChannel').value || 'client';
-}
-
 function getDefaultRepo(channel) {
   return DEFAULT_RELEASE_REPOS[channel] || DEFAULT_RELEASE_REPOS.client;
 }
@@ -336,22 +310,12 @@ function getDefaultAssetPattern(channel) {
 }
 
 function refreshGithubHints() {
-  const channel = getSelectedChannel();
+  const channel = 'host';
   const repo = getDefaultRepo(channel);
   const pattern = getDefaultAssetPattern(channel);
   document.getElementById('ghRepo').placeholder = `空欄なら ${repo}`;
   document.getElementById('ghRepoHint').textContent = `空欄なら自動で ${repo} を使います`;
   document.getElementById('ghAssetPattern').placeholder = `空欄なら ${pattern}`;
-}
-
-function getEffectiveRepo() {
-  const raw = document.getElementById('ghRepo').value.trim();
-  return raw || getDefaultRepo(getSelectedChannel());
-}
-
-function getEffectiveAssetPattern() {
-  const raw = document.getElementById('ghAssetPattern').value.trim();
-  return raw || getDefaultAssetPattern(getSelectedChannel());
 }
 
 function makeAutoVersion() {
@@ -375,10 +339,6 @@ function formatNowLabel() {
   const ss = String(now.getSeconds()).padStart(2, '0');
   return `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
 }
-
-document.getElementById('btnSetNowVersion').addEventListener('click', () => {
-  document.getElementById('updateVersion').value = makeAutoVersion();
-});
 
 // モニター情報を取得して表示
 ipcRenderer.invoke('get-displays').then(displays => {
@@ -419,13 +379,7 @@ const savedGhPattern = localStorage.getItem('host_ghAssetPattern');
 if (savedGhPattern) document.getElementById('ghAssetPattern').value = savedGhPattern;
 const savedGhOverride = localStorage.getItem('host_ghVersionOverride');
 if (savedGhOverride) document.getElementById('ghVersionOverride').value = savedGhOverride;
-const savedUpdateChannel = localStorage.getItem('host_updateChannel');
-if (savedUpdateChannel) document.getElementById('updateChannel').value = savedUpdateChannel;
 refreshGithubHints();
-document.getElementById('updateChannel').addEventListener('change', () => {
-  localStorage.setItem('host_updateChannel', getSelectedChannel());
-  refreshGithubHints();
-});
 
 document.getElementById('btnBrowse').addEventListener('click', async () => {
   const p = await ipcRenderer.invoke('select-folder');
@@ -454,7 +408,7 @@ document.getElementById('btnQuickPublishClient').addEventListener('click', async
   const channel = 'client';
   const serverPath = document.getElementById('serverPath').value.trim();
   const sourceExePath = document.getElementById('updateExePath').value.trim();
-  const notes = document.getElementById('updateNotes').value.trim();
+  const notes = '';
   const st = document.getElementById('updateStatus');
 
   if (!sourceExePath) {
@@ -463,11 +417,7 @@ document.getElementById('btnQuickPublishClient').addEventListener('click', async
     return;
   }
 
-  let version = document.getElementById('updateVersion').value.trim();
-  if (!version) {
-    version = makeAutoVersion();
-    document.getElementById('updateVersion').value = version;
-  }
+  const version = makeAutoVersion();
 
   st.textContent = '更新登録中...';
   st.className = 'status';
@@ -490,54 +440,61 @@ document.getElementById('btnQuickPublishClient').addEventListener('click', async
   st.className = 'status ready';
 });
 
-document.getElementById('btnPublishUpdate').addEventListener('click', async () => {
-  const channel = document.getElementById('updateChannel').value;
+document.getElementById('btnFetchAndPublishClient').addEventListener('click', async () => {
+  const channel = 'client';
   const serverPath = document.getElementById('serverPath').value.trim();
-  const version = document.getElementById('updateVersion').value.trim();
-  const sourceExePath = document.getElementById('updateExePath').value.trim();
-  const notes = document.getElementById('updateNotes').value.trim();
+  const repo = DEFAULT_RELEASE_REPOS.client;
+  const releaseTag = document.getElementById('ghTag').value.trim();
+  const assetPattern = DEFAULT_ASSET_PATTERNS.client;
+  const versionOverride = document.getElementById('ghVersionOverride').value.trim();
+  const token = document.getElementById('ghToken').value.trim();
+  const notes = '';
   const st = document.getElementById('updateStatus');
+  localStorage.setItem('host_ghTag', releaseTag);
+  localStorage.setItem('host_ghVersionOverride', versionOverride);
 
-  localStorage.setItem('host_updateChannel', channel);
-
-  st.textContent = '更新登録中...';
+  st.textContent = 'GitHubから取得して登録中...';
   st.className = 'status';
 
-  const result = await ipcRenderer.invoke('publish-app-update', {
+  const result = await ipcRenderer.invoke('publish-app-update-from-github-release', {
     channel,
     serverPath,
-    version,
-    sourceExePath,
+    repo,
+    releaseTag,
+    assetPattern,
+    versionOverride,
+    token,
     notes,
   });
 
   if (!result || !result.ok) {
-    st.textContent = `登録失敗: ${result?.error || 'unknown error'}`;
+    st.textContent = `取得/登録失敗: ${result?.error || 'unknown error'}`;
     st.className = 'status error';
     return;
   }
 
-  st.textContent = `登録完了 [${result.channel}]: v${result.version} (${result.fileName})`;
+  st.textContent = `取得/登録完了 [client]: v${result.version} (${result.fileName})`;
   st.className = 'status ready';
+  document.getElementById('updateExePath').value = `(GitHub) ${result.assetName}`;
 });
 
 document.getElementById('btnImportFromRelease').addEventListener('click', async () => {
-  const channel = document.getElementById('updateChannel').value;
+  const channel = 'host';
   const serverPath = document.getElementById('serverPath').value.trim();
-  const repo = getEffectiveRepo();
+  const repoRaw = document.getElementById('ghRepo').value.trim();
+  const repo = repoRaw || DEFAULT_RELEASE_REPOS.host;
   const releaseTag = document.getElementById('ghTag').value.trim();
-  const assetPattern = getEffectiveAssetPattern();
+  const patternRaw = document.getElementById('ghAssetPattern').value.trim();
+  const assetPattern = patternRaw || DEFAULT_ASSET_PATTERNS.host;
   const versionOverride = document.getElementById('ghVersionOverride').value.trim();
   const token = document.getElementById('ghToken').value.trim();
-  const notes = document.getElementById('updateNotes').value.trim();
+  const notes = '';
   const st = document.getElementById('releaseStatus');
-  const updateSt = document.getElementById('updateStatus');
 
   localStorage.setItem('host_ghRepo', repo);
   localStorage.setItem('host_ghTag', releaseTag);
   localStorage.setItem('host_ghAssetPattern', assetPattern);
   localStorage.setItem('host_ghVersionOverride', versionOverride);
-  localStorage.setItem('host_updateChannel', channel);
 
   st.textContent = 'Release取得中...';
   st.className = 'status';
@@ -561,10 +518,6 @@ document.getElementById('btnImportFromRelease').addEventListener('click', async 
 
   st.textContent = `取得完了 [${result.channel}]: ${result.assetName} -> v${result.version}`;
   st.className = 'status ready';
-  updateSt.textContent = `登録完了 [${result.channel}]: v${result.version} (${result.fileName})`;
-  updateSt.className = 'status ready';
-  document.getElementById('updateVersion').value = result.version;
-  document.getElementById('updateExePath').value = `(GitHub) ${result.assetName}`;
 });
 
 document.getElementById('btnHostSelfUpdate').addEventListener('click', async () => {

@@ -1,11 +1,12 @@
 {
   "name": "kakimoni-host",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "KakiMoni 親機アプリ",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-packager . KakiMoni_Host --platform=win32 --arch=x64 --out=dist --overwrite --asar"
+    "build": "electron-packager . KakiMoni_Host --platform=win32 --arch=x64 --out=dist --overwrite --asar",
+    "sign": "powershell -ExecutionPolicy Bypass -File scripts/sign-host.ps1"
   },
   "devDependencies": {
     "electron": "^29.0.0",
