@@ -37,6 +37,15 @@
     flex-direction: column;
     gap: 10px;
   }
+  .right-column {
+    grid-column: 2;
+  }
+  .advanced-body {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
   .section-title { font-size: 0.78rem; color: #64748b; font-weight: bold; letter-spacing: 0.05em; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   label { font-size: 0.8rem; color: #94a3b8; }
@@ -139,6 +148,9 @@
     .launcher-grid {
       grid-template-columns: 1fr;
     }
+    .right-column {
+      grid-column: 1;
+    }
   }
 </style>
 </head>
@@ -185,78 +197,88 @@
 </div>
 
 <!-- アプリ更新配信 -->
-<div class="section">
-  <div class="section-title">子機に更新を送る（推奨）</div>
-  <div class="field">
-    <label>更新バージョン（省略可）</label>
-    <div class="row">
-      <input id="updateVersion" type="text" placeholder="例: 20260517-143500">
-      <button class="btn btn-slate" id="btnSetNowVersion" type="button">現在日時</button>
-    </div>
-  </div>
-  <div class="field">
-    <label>更新ファイル（.exe）</label>
-    <div class="row">
-      <input id="updateExePath" type="text" placeholder=".exe を選択してください" readonly>
-      <button class="btn btn-slate" id="btnPickUpdateExe">参照</button>
-    </div>
-  </div>
-  <div class="field">
-    <label>メモ（任意）</label>
-    <input id="updateNotes" type="text" placeholder="例: 文字サイズ調整・不具合修正">
-  </div>
-  <button class="btn btn-blue btn-full" id="btnQuickPublishClient">子機へ更新を登録</button>
-  <p class="mini-note">バージョンが空欄なら自動で日時バージョンを採番します（例: 20260517-143500）。</p>
-  <div class="status" id="updateStatus">未登録</div>
-
+<div class="section right-column">
+  <div class="section-title">更新（通常は閉じたまま）</div>
   <details class="advanced">
-    <summary>上級者向け: 他アプリ配信（親機 / レイアウト）</summary>
-    <div class="field" style="margin-top:8px;">
-      <label>対象アプリ</label>
-      <select id="updateChannel" title="更新対象アプリ">
-        <option value="client">子機 client</option>
-        <option value="host">親機 host</option>
-        <option value="layout">レイアウト layout</option>
-      </select>
+    <summary>子機に更新を送る（通常は触らない）</summary>
+    <div class="advanced-body">
+      <div class="field">
+        <label>更新バージョン（省略可）</label>
+        <div class="row">
+          <input id="updateVersion" type="text" placeholder="例: 20260517-143500">
+          <button class="btn btn-slate" id="btnSetNowVersion" type="button">現在日時</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>更新ファイル（.exe）</label>
+        <div class="row">
+          <input id="updateExePath" type="text" placeholder=".exe を選択してください" readonly>
+          <button class="btn btn-slate" id="btnPickUpdateExe">参照</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>メモ（任意）</label>
+        <input id="updateNotes" type="text" placeholder="例: 文字サイズ調整・不具合修正">
+      </div>
+      <button class="btn btn-blue btn-full" id="btnQuickPublishClient">子機へ更新を登録</button>
+      <p class="mini-note">バージョンが空欄なら自動で日時バージョンを採番します（例: 20260517-143500）。</p>
+      <div class="status" id="updateStatus">未登録</div>
+
+      <details class="advanced">
+        <summary>上級者向け: 他アプリ配信（親機 / レイアウト）</summary>
+        <div class="field" style="margin-top:8px;">
+          <label>対象アプリ</label>
+          <select id="updateChannel" title="更新対象アプリ">
+            <option value="client">子機 client</option>
+            <option value="host">親機 host</option>
+            <option value="layout">レイアウト layout</option>
+          </select>
+        </div>
+        <button class="btn btn-slate btn-full" id="btnPublishUpdate" style="margin-top:8px;">選択した対象へ登録</button>
+      </details>
     </div>
-    <button class="btn btn-slate btn-full" id="btnPublishUpdate" style="margin-top:8px;">選択した対象へ登録</button>
   </details>
 </div>
 
 <!-- 親機自身の更新 -->
-<div class="section">
-  <div class="section-title">親機自身の更新</div>
-  <p class="mini-note">通常は下のボタンだけ使えばOKです。</p>
-  <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
-  <div class="status" id="hostSelfUpdateStatus">未確認</div>
-
+<div class="section right-column">
+  <div class="section-title">更新（通常は閉じたまま）</div>
   <details class="advanced">
-    <summary>上級者向け: GitHub Releaseから取り込み（通常不要）</summary>
-  <div class="section-title">GitHub Releases から取り込み</div>
-  <div class="field">
-    <label>リポジトリ (owner/repo)</label>
-    <input id="ghRepo" type="text" placeholder="例: your-org/kakimoni-release">
-    <div class="section-title" id="ghRepoHint">空欄なら自動選択</div>
-  </div>
-  <div class="field">
-    <label>リリースタグ（任意）</label>
-    <input id="ghTag" type="text" placeholder="空欄なら latest">
-  </div>
-  <div class="field">
-    <label>対象アセット名のキーワード（任意）</label>
-    <input id="ghAssetPattern" type="text" placeholder="例: client">
-  </div>
-  <div class="field">
-    <label>バージョン上書き（任意）</label>
-    <input id="ghVersionOverride" type="text" placeholder="例: 1.0.5">
-  </div>
-  <div class="field">
-    <label>GitHub Token（private repo時のみ、任意）</label>
-    <input id="ghToken" type="text" placeholder="ghp_xxx または fine-grained token">
-  </div>
-  <p class="mini-note">この機能は、対象リポジトリにReleaseが作成済みのときだけ使えます。</p>
-  <button class="btn btn-blue btn-full" id="btnImportFromRelease">Releaseから取得して親機に登録</button>
-  <div class="status" id="releaseStatus">未取得</div>
+    <summary>親機自身の更新（通常は触らない）</summary>
+    <div class="advanced-body">
+      <p class="mini-note">通常は下のボタンだけ使えばOKです。</p>
+      <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
+      <div class="status" id="hostSelfUpdateStatus">未確認</div>
+
+      <details class="advanced">
+        <summary>上級者向け: GitHub Releaseから取り込み（通常不要）</summary>
+      <div class="section-title">GitHub Releases から取り込み</div>
+      <div class="field">
+        <label>リポジトリ (owner/repo)</label>
+        <input id="ghRepo" type="text" placeholder="例: your-org/kakimoni-release">
+        <div class="section-title" id="ghRepoHint">空欄なら自動選択</div>
+      </div>
+      <div class="field">
+        <label>リリースタグ（任意）</label>
+        <input id="ghTag" type="text" placeholder="空欄なら latest">
+      </div>
+      <div class="field">
+        <label>対象アセット名のキーワード（任意）</label>
+        <input id="ghAssetPattern" type="text" placeholder="例: client">
+      </div>
+      <div class="field">
+        <label>バージョン上書き（任意）</label>
+        <input id="ghVersionOverride" type="text" placeholder="例: 1.0.5">
+      </div>
+      <div class="field">
+        <label>GitHub Token（private repo時のみ、任意）</label>
+        <input id="ghToken" type="text" placeholder="ghp_xxx または fine-grained token">
+      </div>
+      <p class="mini-note">この機能は、対象リポジトリにReleaseが作成済みのときだけ使えます。</p>
+      <button class="btn btn-blue btn-full" id="btnImportFromRelease">Releaseから取得して親機に登録</button>
+      <div class="status" id="releaseStatus">未取得</div>
+      </details>
+    </div>
   </details>
 </div>
 
