@@ -338,15 +338,11 @@ document.getElementById('btnPickUpdateExe').addEventListener('click', async () =
   if (p) document.getElementById('updateExePath').value = p;
 });
 
-document.getElementById('btnSetNowVersion').addEventListener('click', () => {
-  document.getElementById('updateVersion').value = makeAutoVersion();
-});
-
 document.getElementById('btnQuickPublishClient').addEventListener('click', async () => {
   const channel = 'client';
   const serverPath = document.getElementById('serverPath').value.trim();
   const sourceExePath = document.getElementById('updateExePath').value.trim();
-  const notes = document.getElementById('updateNotes').value.trim();
+  const notes = '';
   const st = document.getElementById('updateStatus');
 
   if (!sourceExePath) {
@@ -355,11 +351,7 @@ document.getElementById('btnQuickPublishClient').addEventListener('click', async
     return;
   }
 
-  let version = document.getElementById('updateVersion').value.trim();
-  if (!version) {
-    version = makeAutoVersion();
-    document.getElementById('updateVersion').value = version;
-  }
+  const version = makeAutoVersion();
 
   st.textContent = '更新登録中...';
   st.className = 'status';
