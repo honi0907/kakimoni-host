@@ -227,35 +227,6 @@
       <p class="mini-note">通常は下のボタンだけ使えばOKです。</p>
       <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
       <div class="status" id="hostSelfUpdateStatus">未確認</div>
-
-      <details class="advanced">
-        <summary>上級者向け: GitHub Releaseから取り込み（通常不要）</summary>
-      <div class="section-title">GitHub Releases から取り込み</div>
-      <div class="field">
-        <label>リポジトリ (owner/repo)</label>
-        <input id="ghRepo" type="text" placeholder="例: your-org/kakimoni-release">
-        <div class="section-title" id="ghRepoHint">空欄なら自動選択</div>
-      </div>
-      <div class="field">
-        <label>リリースタグ（任意）</label>
-        <input id="ghTag" type="text" placeholder="空欄なら latest">
-      </div>
-      <div class="field">
-        <label>対象アセット名のキーワード（任意）</label>
-        <input id="ghAssetPattern" type="text" placeholder="例: client">
-      </div>
-      <div class="field">
-        <label>バージョン上書き（任意）</label>
-        <input id="ghVersionOverride" type="text" placeholder="例: 1.0.5">
-      </div>
-      <div class="field">
-        <label>GitHub Token（private repo時のみ、任意）</label>
-        <input id="ghToken" type="text" placeholder="ghp_xxx または fine-grained token">
-      </div>
-      <p class="mini-note">この機能は、対象リポジトリにReleaseが作成済みのときだけ使えます。</p>
-      <button class="btn btn-blue btn-full" id="btnImportFromRelease">Releaseから取得して親機に登録</button>
-      <div class="status" id="releaseStatus">未取得</div>
-      </details>
     </div>
   </details>
 </div>
@@ -290,34 +261,6 @@
 const { ipcRenderer } = require('electron');
 let currentPort = 3000;
 let displayOpen = false;
-const DEFAULT_RELEASE_REPOS = {
-  client: 'honi0907/kakimoni-client',
-  host: 'honi0907/kakimoni-host',
-  layout: 'honi0907/kakimoni-layout',
-};
-const DEFAULT_ASSET_PATTERNS = {
-  client: 'client',
-  host: 'host',
-  layout: 'layout',
-};
-
-function getDefaultRepo(channel) {
-  return DEFAULT_RELEASE_REPOS[channel] || DEFAULT_RELEASE_REPOS.client;
-}
-
-function getDefaultAssetPattern(channel) {
-  return DEFAULT_ASSET_PATTERNS[channel] || '';
-}
-
-function refreshGithubHints() {
-  const channel = 'host';
-  const repo = getDefaultRepo(channel);
-  const pattern = getDefaultAssetPattern(channel);
-  document.getElementById('ghRepo').placeholder = `空欄なら ${repo}`;
-  document.getElementById('ghRepoHint').textContent = `空欄なら自動で ${repo} を使います`;
-  document.getElementById('ghAssetPattern').placeholder = `空欄なら ${pattern}`;
-}
-
 function makeAutoVersion() {
   const now = new Date();
   const y = now.getFullYear();
@@ -371,15 +314,6 @@ ipcRenderer.invoke('get-default-path').then(defaultPath => {
 });
 const savedPort = localStorage.getItem('host_port');
 if (savedPort) document.getElementById('port').value = savedPort;
-const savedGhRepo = localStorage.getItem('host_ghRepo');
-if (savedGhRepo) document.getElementById('ghRepo').value = savedGhRepo;
-const savedGhTag = localStorage.getItem('host_ghTag');
-if (savedGhTag) document.getElementById('ghTag').value = savedGhTag;
-const savedGhPattern = localStorage.getItem('host_ghAssetPattern');
-if (savedGhPattern) document.getElementById('ghAssetPattern').value = savedGhPattern;
-const savedGhOverride = localStorage.getItem('host_ghVersionOverride');
-if (savedGhOverride) document.getElementById('ghVersionOverride').value = savedGhOverride;
-refreshGithubHints();
 
 document.getElementById('btnBrowse').addEventListener('click', async () => {
   const p = await ipcRenderer.invoke('select-folder');
@@ -404,11 +338,15 @@ document.getElementById('btnPickUpdateExe').addEventListener('click', async () =
   if (p) document.getElementById('updateExePath').value = p;
 });
 
+document.getElementById('btnSetNowVersion').addEventListener('click', () => {
+  document.getElementById('updateVersion').value = makeAutoVersion();
+});
+
 document.getElementById('btnQuickPublishClient').addEventListener('click', async () => {
   const channel = 'client';
   const serverPath = document.getElementById('serverPath').value.trim();
   const sourceExePath = document.getElementById('updateExePath').value.trim();
-  const notes = '';
+  const notes = document.getElementById('updateNotes').value.trim();
   const st = document.getElementById('updateStatus');
 
   if (!sourceExePath) {
@@ -417,7 +355,11 @@ document.getElementById('btnQuickPublishClient').addEventListener('click', async
     return;
   }
 
-  const version = makeAutoVersion();
+  let version = document.getElementById('updateVersion').value.trim();
+  if (!version) {
+    version = makeAutoVersion();
+    document.getElementById('updateVersion').value = version;
+  }
 
   st.textContent = '更新登録中...';
   st.className = 'status';
@@ -440,93 +382,13 @@ document.getElementById('btnQuickPublishClient').addEventListener('click', async
   st.className = 'status ready';
 });
 
-document.getElementById('btnFetchAndPublishClient').addEventListener('click', async () => {
-  const channel = 'client';
-  const serverPath = document.getElementById('serverPath').value.trim();
-  const repo = DEFAULT_RELEASE_REPOS.client;
-  const releaseTag = document.getElementById('ghTag').value.trim();
-  const assetPattern = DEFAULT_ASSET_PATTERNS.client;
-  const versionOverride = document.getElementById('ghVersionOverride').value.trim();
-  const token = document.getElementById('ghToken').value.trim();
-  const notes = '';
-  const st = document.getElementById('updateStatus');
-  localStorage.setItem('host_ghTag', releaseTag);
-  localStorage.setItem('host_ghVersionOverride', versionOverride);
-
-  st.textContent = 'GitHubから取得して登録中...';
-  st.className = 'status';
-
-  const result = await ipcRenderer.invoke('publish-app-update-from-github-release', {
-    channel,
-    serverPath,
-    repo,
-    releaseTag,
-    assetPattern,
-    versionOverride,
-    token,
-    notes,
-  });
-
-  if (!result || !result.ok) {
-    st.textContent = `取得/登録失敗: ${result?.error || 'unknown error'}`;
-    st.className = 'status error';
-    return;
-  }
-
-  st.textContent = `取得/登録完了 [client]: v${result.version} (${result.fileName})`;
-  st.className = 'status ready';
-  document.getElementById('updateExePath').value = `(GitHub) ${result.assetName}`;
-});
-
-document.getElementById('btnImportFromRelease').addEventListener('click', async () => {
-  const channel = 'host';
-  const serverPath = document.getElementById('serverPath').value.trim();
-  const repoRaw = document.getElementById('ghRepo').value.trim();
-  const repo = repoRaw || DEFAULT_RELEASE_REPOS.host;
-  const releaseTag = document.getElementById('ghTag').value.trim();
-  const patternRaw = document.getElementById('ghAssetPattern').value.trim();
-  const assetPattern = patternRaw || DEFAULT_ASSET_PATTERNS.host;
-  const versionOverride = document.getElementById('ghVersionOverride').value.trim();
-  const token = document.getElementById('ghToken').value.trim();
-  const notes = '';
-  const st = document.getElementById('releaseStatus');
-
-  localStorage.setItem('host_ghRepo', repo);
-  localStorage.setItem('host_ghTag', releaseTag);
-  localStorage.setItem('host_ghAssetPattern', assetPattern);
-  localStorage.setItem('host_ghVersionOverride', versionOverride);
-
-  st.textContent = 'Release取得中...';
-  st.className = 'status';
-
-  const result = await ipcRenderer.invoke('publish-app-update-from-github-release', {
-    channel,
-    serverPath,
-    repo,
-    releaseTag,
-    assetPattern,
-    versionOverride,
-    token,
-    notes,
-  });
-
-  if (!result || !result.ok) {
-    st.textContent = `取得失敗: ${result?.error || 'unknown error'}`;
-    st.className = 'status error';
-    return;
-  }
-
-  st.textContent = `取得完了 [${result.channel}]: ${result.assetName} -> v${result.version}`;
-  st.className = 'status ready';
-});
-
 document.getElementById('btnHostSelfUpdate').addEventListener('click', async () => {
   // 親機自身の更新は常に親機リポジトリを参照する
-  const repo = DEFAULT_RELEASE_REPOS.host;
-  const releaseTag = document.getElementById('ghTag').value.trim();
-  const assetPattern = DEFAULT_ASSET_PATTERNS.host;
-  const versionOverride = document.getElementById('ghVersionOverride').value.trim();
-  const token = document.getElementById('ghToken').value.trim();
+  const repo = 'honi0907/kakimoni-host';
+  const releaseTag = '';
+  const assetPattern = 'host';
+  const versionOverride = '';
+  const token = '';
   const st = document.getElementById('hostSelfUpdateStatus');
 
   const checkedAt = formatNowLabel();
