@@ -387,8 +387,11 @@ ipcMain.handle('check-host-self-update-from-github', async (event, payload = {})
     }
 
     let picked = null;
-    if (assetPattern) picked = exeAssets.find(a => a.name.toLowerCase().includes(assetPattern));
-    // 親機自己更新は Setup を最優先にする（Portable は更新適用向きではない）
+    if (assetPattern) {
+      const matched = exeAssets.filter(a => a.name.toLowerCase().includes(assetPattern));
+      // 親機自己更新は Setup を最優先にする（Portable は更新適用向きではない）
+      picked = matched.find(a => /setup/i.test(a.name)) || matched.find(a => !/portable/i.test(a.name)) || matched[0] || null;
+    }
     if (!picked) picked = exeAssets.find(a => /setup/i.test(a.name));
     if (!picked) picked = exeAssets.find(a => !/portable/i.test(a.name));
     if (!picked) picked = exeAssets[0];
