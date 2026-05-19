@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -114,6 +115,7 @@
     color: #93c5fd;
     font-size: 0.82rem;
     font-weight: 600;
+    -webkit-user-select: none;
     user-select: none;
   }
   .mini-note { font-size: 0.75rem; color: #64748b; line-height: 1.5; }
@@ -200,7 +202,7 @@
   <div id="ip-display" style="display:none; font-size:0.85rem; background:#0f172a;
        border:1px solid #1d4ed8; border-radius:3px; padding:7px 10px; color:#93c5fd;
        display:none; align-items:center; gap:8px;">
-    <span style="flex:1;">子機のサーバーURL：<span id="ip-url" style="color:#7dd3fc; font-weight:bold; user-select:all;"></span></span>
+    <span style="flex:1;">子機のサーバーURL：<span id="ip-url" style="color:#7dd3fc; font-weight:bold; -webkit-user-select:all; user-select:all;"></span></span>
     <button id="btnCopyUrl" class="btn btn-slate" style="padding:4px 10px; font-size:0.8rem;">コピー</button>
     <button id="btnQr" class="btn btn-slate" style="padding:4px 10px; font-size:0.8rem;">QR</button>
   </div>

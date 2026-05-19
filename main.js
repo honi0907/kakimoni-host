@@ -441,31 +441,9 @@ ipcMain.handle('apply-host-self-update', async (event, payload = {}) => {
       return { ok: false, error: '更新ファイルが見つかりません。' };
     }
 
-    const currentExePath = process.execPath;
-    const backupExePath = `${currentExePath}.bak`;
-    const scriptPath = path.join(app.getPath('temp'), `kakimoni-host-updater-${Date.now()}.cmd`);
-    const script = [
-      '@echo off',
-      'setlocal',
-      // アプリが完全終了するまで待つ（最大20秒リトライ）
-      'set RETRY=0',
-      ':WAIT',
-      'timeout /t 3 /nobreak >nul',
-      `copy /y "${downloadedPath}" "${currentExePath}" >nul 2>nul`,
-      'if errorlevel 1 (',
-      '  set /a RETRY+=1',
-      '  if %RETRY% lss 6 goto WAIT',
-      ')',
-      `start "" "${currentExePath}"`,
-      `del /f /q "${downloadedPath}" >nul 2>nul`,
-      `del /f /q "${backupExePath}" >nul 2>nul`,
-      `del /f /q "${scriptPath}" >nul 2>nul`,
-      'endlocal',
-    ].join('\r\n');
-
-    fs.writeFileSync(scriptPath, script, 'utf-8');
-    spawn('cmd.exe', ['/c', scriptPath], { detached: true, stdio: 'ignore' }).unref();
-    setTimeout(() => app.quit(), 100);
+    // インストーラーを /S（サイレント）起動して更新。アプリは終了。
+    spawn('cmd.exe', ['/c', 'start', '""', `"${downloadedPath}"`, '/S'], { detached: true, stdio: 'ignore', shell: true }).unref();
+    setTimeout(() => app.quit(), 300);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
