@@ -20,6 +20,16 @@
     overflow: auto;
   }
   h2 { font-size: 1.1rem; color: #7dd3fc; }
+  .app-version-badge {
+    margin-left: 10px;
+    font-size: 0.78rem;
+    color: #93c5fd;
+    background: #0b1324;
+    border: 1px solid #334155;
+    border-radius: 3px;
+    padding: 2px 8px;
+    vertical-align: middle;
+  }
   .launcher-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(320px, 1fr));
@@ -156,7 +166,7 @@
 </head>
 <body>
 
-<h2>🎛️ KakiMoni 親機 サーバー接続ランチャー</h2>
+<h2>🎛️ KakiMoni 親機 サーバー接続ランチャー <span class="app-version-badge" id="host-app-version">v-</span></h2>
 
 <div class="quick-guide">
   <strong>いつもの使い方（かんたん）:</strong>
@@ -261,6 +271,12 @@
 const { ipcRenderer } = require('electron');
 let currentPort = 3000;
 let displayOpen = false;
+
+ipcRenderer.invoke('get-app-version').then((v) => {
+  const el = document.getElementById('host-app-version');
+  if (el) el.textContent = `v${v || '-'}`;
+}).catch(() => {});
+
 function makeAutoVersion() {
   const now = new Date();
   const y = now.getFullYear();
@@ -372,6 +388,35 @@ document.getElementById('btnQuickPublishClient').addEventListener('click', async
 
   st.textContent = `登録完了 [client]: v${result.version} (${result.fileName})`;
   st.className = 'status ready';
+});
+
+document.getElementById('btnFetchAndPublishClient').addEventListener('click', async () => {
+  const st = document.getElementById('updateStatus');
+  const serverPath = document.getElementById('serverPath').value.trim();
+
+  st.textContent = 'GitHubから取得して登録中...';
+  st.className = 'status';
+
+  const result = await ipcRenderer.invoke('publish-app-update-from-github-release', {
+    channel: 'client',
+    serverPath,
+    repo: 'honi0907/kakimoni-client',
+    releaseTag: '',
+    assetPattern: 'client',
+    versionOverride: '',
+    token: '',
+    notes: '',
+  });
+
+  if (!result || !result.ok) {
+    st.textContent = `取得/登録失敗: ${result?.error || 'unknown error'}`;
+    st.className = 'status error';
+    return;
+  }
+
+  st.textContent = `取得/登録完了 [client]: v${result.version} (${result.fileName})`;
+  st.className = 'status ready';
+  document.getElementById('updateExePath').value = `(GitHub) ${result.assetName}`;
 });
 
 document.getElementById('btnHostSelfUpdate').addEventListener('click', async () => {

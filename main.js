@@ -212,6 +212,7 @@ function createLauncher() {
 }
 
 ipcMain.handle('get-default-path', () => defaultServerPath);
+ipcMain.handle('get-app-version', () => app.getVersion());
 
 ipcMain.handle('get-displays', () => {
   const displays = screen.getAllDisplays();
@@ -446,14 +447,18 @@ ipcMain.handle('apply-host-self-update', async (event, payload = {}) => {
     const script = [
       '@echo off',
       'setlocal',
-      'timeout /t 2 /nobreak >nul',
-      `copy /y "${currentExePath}" "${backupExePath}" >nul`,
-      `copy /y "${downloadedPath}" "${currentExePath}" >nul`,
+      // アプリが完全終了するまで待つ（最大20秒リトライ）
+      'set RETRY=0',
+      ':WAIT',
+      'timeout /t 3 /nobreak >nul',
+      `copy /y "${downloadedPath}" "${currentExePath}" >nul 2>nul`,
       'if errorlevel 1 (',
-      `  copy /y "${backupExePath}" "${currentExePath}" >nul`,
+      '  set /a RETRY+=1',
+      '  if %RETRY% lss 6 goto WAIT',
       ')',
       `start "" "${currentExePath}"`,
       `del /f /q "${downloadedPath}" >nul 2>nul`,
+      `del /f /q "${backupExePath}" >nul 2>nul`,
       `del /f /q "${scriptPath}" >nul 2>nul`,
       'endlocal',
     ].join('\r\n');
@@ -515,6 +520,7 @@ function openMainWindow(port, hostPath) {
   mainWin = new BrowserWindow({
     width: 1280,
     height: 960,
+    fullscreen: true,
     title: 'KakiMoni 親機',
     webPreferences: {
       nodeIntegration: false,
@@ -563,12 +569,15 @@ ipcMain.on('toggle-display', (event, { port }) => {
   if (launcherWin) launcherWin.webContents.send('display-status', true);
 });
 
-ipcMain.handle('quit-app', async () => {
-  if (serverProcess) {
-    try { serverProcess.kill(); } catch {}
-    serverProcess = null;
+ipcMain.handle('quit-app', async (event) => {
+  // 親機画面の「ソフト終了」は、送信元ウィンドウのみ閉じる。
+  // ランチャーとサーバーは継続稼働させる。
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  if (senderWin && !senderWin.isDestroyed() && senderWin !== launcherWin) {
+    senderWin.close();
+  } else if (mainWin && !mainWin.isDestroyed()) {
+    mainWin.close();
   }
-  app.quit();
   return { ok: true };
 });
 
