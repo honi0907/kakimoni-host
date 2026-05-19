@@ -5,7 +5,9 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win nsis"
+    "build": "electron-builder --win",
+    "build:installer": "electron-builder --win nsis",
+    "build:portable": "electron-builder --win portable"
   },
   "devDependencies": {
     "electron": "^29.0.0",
@@ -22,15 +24,21 @@
       "!dist/**"
     ],
     "win": {
-      "target": "nsis",
-      "signAndEditExecutable": false,
-      "artifactName": "KakiMoni_Host-${version}-Setup.${ext}"
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
     },
     "nsis": {
+      "artifactName": "KakiMoni_Host-${version}-Setup.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "portable": {
+      "artifactName": "KakiMoni_Host-${version}-Portable.${ext}"
     }
   },
   "dependencies": {
