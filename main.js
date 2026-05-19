@@ -453,6 +453,7 @@ ipcMain.handle('apply-host-self-update', async (event, payload = {}) => {
 ipcMain.on('start-server', (event, { serverPath, port, bindIp }) => {
   if (serverProcess) { serverProcess.kill(); serverProcess = null; }
   currentBindIp = bindIp || null;
+  let handledPortConflict = false;
 
   const nodePath = getNodePath();
   if (launcherWin) launcherWin.webContents.send('server-log', `node: ${nodePath}`);
@@ -460,7 +461,11 @@ ipcMain.on('start-server', (event, { serverPath, port, bindIp }) => {
   serverProcess = spawn(nodePath, ['server.js'], {
     cwd: serverPath,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, ...(currentBindIp ? { KAKIMONI_IP: currentBindIp } : {}) },
+    env: {
+      ...process.env,
+      KAKIMONI_PORT: String(parseInt(port, 10) || 3000),
+      ...(currentBindIp ? { KAKIMONI_IP: currentBindIp } : {}),
+    },
   });
 
   serverProcess.stdout.on('data', (data) => {
@@ -474,7 +479,21 @@ ipcMain.on('start-server', (event, { serverPath, port, bindIp }) => {
   });
 
   serverProcess.stderr.on('data', (data) => {
-    if (launcherWin) launcherWin.webContents.send('server-log', data.toString());
+    const text = data.toString();
+    if (text.includes('EADDRINUSE')) {
+      handledPortConflict = true;
+      const p = parseInt(port, 10) || 3000;
+      if (launcherWin) {
+        launcherWin.webContents.send('server-error',
+          `ポート ${p} は既に使用中です。\n` +
+          `他で起動中の node server.js を停止するか、別ポートに変更してください。\n` +
+          `確認: Get-NetTCPConnection -LocalPort ${p} | Select-Object OwningProcess\n` +
+          `停止: Stop-Process -Id <PID> -Force`
+        );
+      }
+      return;
+    }
+    if (launcherWin) launcherWin.webContents.send('server-log', text);
   });
 
   serverProcess.on('error', (err) => {
@@ -483,7 +502,9 @@ ipcMain.on('start-server', (event, { serverPath, port, bindIp }) => {
 
   serverProcess.on('exit', (code) => {
     if (code !== 0 && code !== null) {
-      if (launcherWin) launcherWin.webContents.send('server-error', `プロセス終了 (code ${code})`);
+      if (!handledPortConflict) {
+        if (launcherWin) launcherWin.webContents.send('server-error', `プロセス終了 (code ${code})`);
+      }
     }
   });
 });
