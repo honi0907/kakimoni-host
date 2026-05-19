@@ -129,6 +129,55 @@
     line-height: 1.6;
   }
   .quick-guide strong { color: #ffffff; }
+  
+  /* サーバーアドレス情報表示 */
+  .server-address-info {
+    background: linear-gradient(135deg, #0d1f3c 0%, #0b1d38 100%);
+    border: 1px solid #1e40af;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .server-address-info.inactive {
+    border-color: #334155;
+    background: #0f172a;
+  }
+  .address-status {
+    font-size: 0.85rem;
+    color: #93c5fd;
+    font-weight: 600;
+  }
+  .address-status.running {
+    color: #4ade80;
+  }
+  .address-status.stopped {
+    color: #64748b;
+  }
+  .address-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid #334155;
+    border-radius: 4px;
+    padding: 8px 10px;
+  }
+  .address-display-text {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #7dd3fc;
+    -webkit-user-select: all;
+    user-select: all;
+    word-break: break-all;
+  }
+  .address-actions {
+    display: flex;
+    gap: 6px;
+  }
 
   /* QRモーダル */
   #qr-modal {
@@ -169,6 +218,18 @@
 <body>
 
 <h2>🎛️ KakiMoni 親機 サーバー接続ランチャー <span class="app-version-badge" id="host-app-version">v-</span></h2>
+
+<!-- サーバーアドレス情報（常時表示） -->
+<div class="server-address-info inactive">
+  <div class="address-status stopped" id="server-address-status">● サーバー未起動</div>
+  <div class="address-display" id="address-display-area" style="display:none;">
+    <span class="address-display-text" id="server-url-display"></span>
+    <div class="address-actions">
+      <button id="btnCopyUrlMain" class="btn btn-slate" style="padding:4px 10px; font-size:0.8rem;">コピー</button>
+      <button id="btnQrMain" class="btn btn-slate" style="padding:4px 10px; font-size:0.8rem;">QR</button>
+    </div>
+  </div>
+</div>
 
 <div class="quick-guide">
   <strong>いつもの使い方（かんたん）:</strong>
@@ -542,13 +603,39 @@ ipcRenderer.on('server-ready', (e, { port, ip }) => {
   if (btnMain) btnMain.disabled = false;
   if (btnMainV2) btnMainV2.disabled = false;
   if (btnDisplay) btnDisplay.disabled = false;
-  // IPアドレスを固定表示
+  
+  // サーバーアドレス情報を更新
+  const serverUrl = `http://${ip}:${port}`;
+  document.getElementById('server-url-display').textContent = serverUrl;
+  document.getElementById('address-display-area').style.display = 'flex';
+  const addressInfo = document.querySelector('.server-address-info');
+  addressInfo.classList.remove('inactive');
+  addressInfo.classList.add('running');
+  const addressStatus = document.getElementById('server-address-status');
+  addressStatus.textContent = `● サーバー起動中 (ポート ${port})`;
+  addressStatus.classList.remove('stopped');
+  addressStatus.classList.add('running');
+  
+  updateQrCode(serverUrl);
+
+  document.getElementById('btnCopyUrlMain').onclick = () => {
+    navigator.clipboard.writeText(serverUrl).then(() => {
+      const btn = document.getElementById('btnCopyUrlMain');
+      btn.textContent = 'コピー済！';
+      setTimeout(() => { btn.textContent = 'コピー'; }, 1500);
+    });
+  };
+  
+  document.getElementById('btnQrMain').addEventListener('click', () => {
+    if (!currentServerUrl) return;
+    document.getElementById('qr-modal').classList.add('show');
+  });
+
+  // IPアドレスを固定表示（従来の要素もサポート）
   const ipDisp = document.getElementById('ip-display');
   const ipUrl  = document.getElementById('ip-url');
   ipDisp.style.display = 'flex';
-  const serverUrl = `http://${ip}:${port}`;
   ipUrl.textContent = serverUrl;
-  updateQrCode(serverUrl);
 
   document.getElementById('btnCopyUrl').onclick = () => {
     navigator.clipboard.writeText(ipUrl.textContent).then(() => {
@@ -563,6 +650,16 @@ ipcRenderer.on('server-error', (e, msg) => {
   setStatus('エラー: ' + msg, 'error');
   document.getElementById('btnStart').textContent = 'サーバー起動';
   document.getElementById('btnStart').disabled = false;
+  
+  // サーバーアドレス情報をリセット
+  document.getElementById('address-display-area').style.display = 'none';
+  const addressInfo = document.querySelector('.server-address-info');
+  addressInfo.classList.add('inactive');
+  addressInfo.classList.remove('running');
+  const addressStatus = document.getElementById('server-address-status');
+  addressStatus.textContent = `● サーバー起動失敗`;
+  addressStatus.classList.add('stopped');
+  addressStatus.classList.remove('running');
 });
 
 ipcRenderer.on('display-status', (e, open) => {
