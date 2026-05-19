@@ -16,7 +16,7 @@ function getLanIp() {
   return 'localhost';
 }
 
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const { execSync } = require('child_process');
 
@@ -313,7 +313,10 @@ async function importAppUpdateFromGithubRelease(payload = {}) {
     }
 
     let picked = null;
-    if (assetPattern) picked = exeAssets.find(a => a.name.toLowerCase().includes(assetPattern));
+    if (assetPattern) {
+      const matched = exeAssets.filter(a => a.name.toLowerCase().includes(assetPattern));
+      picked = matched.find(a => /setup/i.test(a.name)) || matched[0] || null;
+    }
     if (!picked) picked = exeAssets[0];
     if (!picked.browser_download_url) {
       return { ok: false, error: 'ダウンロードURLを取得できませんでした。' };
@@ -385,6 +388,9 @@ ipcMain.handle('check-host-self-update-from-github', async (event, payload = {})
 
     let picked = null;
     if (assetPattern) picked = exeAssets.find(a => a.name.toLowerCase().includes(assetPattern));
+    // 親機自己更新は Setup を最優先にする（Portable は更新適用向きではない）
+    if (!picked) picked = exeAssets.find(a => /setup/i.test(a.name));
+    if (!picked) picked = exeAssets.find(a => !/portable/i.test(a.name));
     if (!picked) picked = exeAssets[0];
     if (!picked.browser_download_url) {
       return { ok: false, error: 'ダウンロードURLを取得できませんでした。' };
@@ -441,9 +447,28 @@ ipcMain.handle('apply-host-self-update', async (event, payload = {}) => {
       return { ok: false, error: '更新ファイルが見つかりません。' };
     }
 
-    // インストーラーを /S（サイレント）起動して更新。アプリは終了。
-    spawn('cmd.exe', ['/c', 'start', '""', `"${downloadedPath}"`, '/S'], { detached: true, stdio: 'ignore', shell: true }).unref();
-    setTimeout(() => app.quit(), 300);
+    const toPsSingleQuoted = (v) => String(v).replace(/'/g, "''");
+    // UACで通常インストーラーを起動し、起動確認できた時だけアプリを終了する
+    const launchCmd = [
+      "$ErrorActionPreference = 'Stop'",
+      `$null = Start-Process -FilePath '${toPsSingleQuoted(downloadedPath)}' -Verb RunAs`,
+      'Write-Output OK',
+    ].join('; ');
+    const launched = spawnSync('powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-Command', launchCmd,
+    ], {
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+
+    if (launched.status !== 0 || !String(launched.stdout || '').includes('OK')) {
+      const errText = String((launched.stderr || launched.stdout || '')).trim();
+      return { ok: false, error: errText || 'インストーラーの起動に失敗しました（UACが拒否された可能性があります）。' };
+    }
+
+    setTimeout(() => app.quit(), 500);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
