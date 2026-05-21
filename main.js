@@ -482,6 +482,7 @@ ipcMain.on('start-server', (event, { serverPath, port, bindIp }) => {
   if (serverProcess) { serverProcess.kill(); serverProcess = null; }
   currentBindIp = bindIp || null;
   let handledPortConflict = false;
+  let readyNotified = false;
 
   const nodePath = getNodePath();
   if (launcherWin) launcherWin.webContents.send('server-log', `node: ${nodePath}`);
@@ -499,8 +500,9 @@ ipcMain.on('start-server', (event, { serverPath, port, bindIp }) => {
   serverProcess.stdout.on('data', (data) => {
     const text = data.toString();
     if (launcherWin) launcherWin.webContents.send('server-log', text);
-    // 起動完了メッセージを検出
-    if (text.includes('起動完了') || text.includes('KakiMoni')) {
+    // 起動完了メッセージを1回だけ検出
+    if (!readyNotified && text.includes('起動完了')) {
+      readyNotified = true;
       const ip = currentBindIp || getLanIp();
       if (launcherWin) launcherWin.webContents.send('server-ready', { port, ip });
     }

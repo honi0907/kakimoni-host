@@ -51,6 +51,13 @@
   .right-column {
     grid-column: 2;
   }
+  .right-column-stack {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-self: start;
+  }
   .advanced-body {
     margin-top: 8px;
     display: flex;
@@ -110,6 +117,12 @@
     padding: 8px;
     background: #0b1324;
   }
+  details.advanced:not([open]) {
+    padding: 6px 8px 5px;
+  }
+  details.advanced[open] > summary {
+    margin-bottom: 6px;
+  }
   details.advanced > summary {
     cursor: pointer;
     color: #93c5fd;
@@ -119,72 +132,15 @@
     user-select: none;
   }
   .mini-note { font-size: 0.75rem; color: #64748b; line-height: 1.5; }
-  .quick-guide {
-    background: #10223f;
-    border: 1px solid #1d4ed8;
-    border-radius: 6px;
-    padding: 10px 12px;
-    color: #bfdbfe;
-    font-size: 0.82rem;
-    line-height: 1.6;
-  }
-  .quick-guide strong { color: #ffffff; }
-  
-  /* サーバーアドレス情報表示 */
-  .server-address-info {
-    background: linear-gradient(135deg, #0d1f3c 0%, #0b1d38 100%);
-    border: 1px solid #1e40af;
-    border-radius: 6px;
-    padding: 12px 14px;
-    margin-bottom: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .server-address-info.inactive {
-    border-color: #334155;
-    background: #0f172a;
-  }
-  .address-status {
-    font-size: 0.85rem;
-    color: #93c5fd;
-    font-weight: 600;
-  }
-  .address-status.running {
-    color: #4ade80;
-  }
-  .address-status.stopped {
-    color: #64748b;
-  }
-  .address-display {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid #334155;
-    border-radius: 4px;
-    padding: 8px 10px;
-  }
-  .address-display-text {
-    flex: 1;
-    font-family: 'Courier New', monospace;
-    font-size: 0.85rem;
-    color: #7dd3fc;
-    -webkit-user-select: all;
-    user-select: all;
-    word-break: break-all;
-  }
-  .address-actions {
-    display: flex;
-    gap: 6px;
-  }
 
-  /* QRモーダル */
   #qr-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 9999;
     display: none;
-    position: fixed; inset: 0; z-index: 100;
-    background: rgba(0,0,0,0.75);
-    align-items: center; justify-content: center;
+    align-items: center;
+    justify-content: center;
   }
   #qr-modal.show { display: flex; }
   .qr-box {
@@ -192,19 +148,30 @@
     border: 1px solid #334155;
     border-radius: 8px;
     padding: 24px;
-    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
     min-width: 220px;
   }
   .qr-box canvas, .qr-box img { border-radius: 6px; }
   .qr-url-text {
-    font-size: 0.8rem; color: #7dd3fc; word-break: break-all; text-align: center;
+    font-size: 0.8rem;
+    color: #7dd3fc;
+    word-break: break-all;
+    text-align: center;
   }
   .qr-close {
-    padding: 6px 20px; background: #334155; border: none; border-radius: 4px;
-    color: #e2e8f0; cursor: pointer; font-size: 0.85rem;
+    padding: 6px 20px;
+    background: #334155;
+    border: none;
+    border-radius: 4px;
+    color: #e2e8f0;
+    cursor: pointer;
+    font-size: 0.85rem;
   }
   .qr-close:hover { background: #475569; }
-
+  
   @media (max-width: 820px) {
     .launcher-grid {
       grid-template-columns: 1fr;
@@ -218,23 +185,6 @@
 <body>
 
 <h2>🎛️ KakiMoni 親機 サーバー接続ランチャー <span class="app-version-badge" id="host-app-version">v-</span></h2>
-
-<!-- サーバーアドレス情報（常時表示） -->
-<div class="server-address-info inactive">
-  <div class="address-status stopped" id="server-address-status">● サーバー未起動</div>
-  <div class="address-display" id="address-display-area" style="display:none;">
-    <span class="address-display-text" id="server-url-display"></span>
-    <div class="address-actions">
-      <button id="btnCopyUrlMain" class="btn btn-slate" style="padding:4px 10px; font-size:0.8rem;">コピー</button>
-      <button id="btnQrMain" class="btn btn-slate" style="padding:4px 10px; font-size:0.8rem;">QR</button>
-    </div>
-  </div>
-</div>
-
-<div class="quick-guide">
-  <strong>いつもの使い方（かんたん）:</strong>
-  1) サーバー起動 → 2) 右の「子機更新」で取得または選択 → 3) 子機へ登録
-</div>
 
 <div class="launcher-grid">
 
@@ -269,39 +219,41 @@
   </div>
 </div>
 
-<!-- アプリ更新配信 -->
-<div class="section right-column">
-  <div class="section-title">更新（通常は閉じたまま）</div>
-  <details class="advanced">
-    <summary>子機更新（取得と送信をまとめて実行）</summary>
-    <div class="advanced-body">
-      <button class="btn btn-blue btn-full" id="btnFetchAndPublishClient">GitHubから子機青ソフトを取得して登録</button>
-      <p class="mini-note">通常はこのボタンだけでOKです（kakimoni-client の latest を使用）。</p>
+<div class="right-column-stack">
+  <!-- アプリ更新配信 -->
+  <div class="section">
+    <div class="section-title">更新（通常は閉じたまま）</div>
+    <details class="advanced">
+      <summary>子機更新（取得と送信をまとめて実行）</summary>
+      <div class="advanced-body">
+        <button class="btn btn-blue btn-full" id="btnFetchAndPublishClient">GitHubから子機青ソフトを取得して登録</button>
+        <p class="mini-note">通常はこのボタンだけでOKです（kakimoni-client の latest を使用）。</p>
 
-      <div class="field">
-        <label>更新ファイル（手動指定する場合のみ）</label>
-        <div class="row">
-          <input id="updateExePath" type="text" placeholder=".exe を選択してください" readonly>
-          <button class="btn btn-slate" id="btnPickUpdateExe">参照</button>
+        <div class="field">
+          <label>更新ファイル（手動指定する場合のみ）</label>
+          <div class="row">
+            <input id="updateExePath" type="text" placeholder=".exe を選択してください" readonly>
+            <button class="btn btn-slate" id="btnPickUpdateExe">参照</button>
+          </div>
         </div>
+        <button class="btn btn-slate btn-full" id="btnQuickPublishClient">選んだファイルを子機へ登録</button>
+        <div class="status" id="updateStatus">未登録</div>
       </div>
-      <button class="btn btn-slate btn-full" id="btnQuickPublishClient">選んだファイルを子機へ登録</button>
-      <div class="status" id="updateStatus">未登録</div>
-    </div>
-  </details>
-</div>
+    </details>
+  </div>
 
-<!-- 親機自身の更新 -->
-<div class="section right-column">
-  <div class="section-title">更新（通常は閉じたまま）</div>
-  <details class="advanced">
-    <summary>親機自身の更新（通常は触らない）</summary>
-    <div class="advanced-body">
-      <p class="mini-note">通常は下のボタンだけ使えばOKです。</p>
-      <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
-      <div class="status" id="hostSelfUpdateStatus">未確認</div>
-    </div>
-  </details>
+  <!-- 親機自身の更新 -->
+  <div class="section">
+    <div class="section-title">更新（通常は閉じたまま）</div>
+    <details class="advanced">
+      <summary>親機自身の更新（通常は触らない）</summary>
+      <div class="advanced-body">
+        <p class="mini-note">通常は下のボタンだけ使えばOKです。</p>
+        <button class="btn btn-green btn-full" id="btnHostSelfUpdate">親機アプリをオンライン更新</button>
+        <div class="status" id="hostSelfUpdateStatus">未確認</div>
+      </div>
+    </details>
+  </div>
 </div>
 
 <!-- QRコードモーダル -->
@@ -334,6 +286,7 @@
 const { ipcRenderer } = require('electron');
 let currentPort = 3000;
 let displayOpen = false;
+let serverReady = false;
 
 ipcRenderer.invoke('get-app-version').then((v) => {
   const el = document.getElementById('host-app-version');
@@ -407,6 +360,7 @@ document.getElementById('btnStart').addEventListener('click', () => {
   localStorage.setItem('host_port', currentPort);
   localStorage.setItem('host_bindIp', bindIp);
   setStatus('起動中...', '');
+  serverReady = false;
   document.getElementById('btnStart').textContent = '起動中...';
   document.getElementById('btnStart').disabled = true;
   ipcRenderer.send('start-server', { serverPath, port: currentPort, bindIp: bindIp || null });
@@ -563,6 +517,7 @@ document.getElementById('btnDisplay').addEventListener('click', () => {
 });
 
 ipcRenderer.on('server-log', (e, text) => {
+  if (serverReady) return;
   const clean = text.trim().replace(/\s+/g, ' ');
   if (clean.length > 0) setStatus(clean, '');
 });
@@ -593,47 +548,23 @@ document.getElementById('qr-modal').addEventListener('click', (e) => {
 });
 
 ipcRenderer.on('server-ready', (e, { port, ip }) => {
+  serverReady = true;
   currentPort = port;
   setStatus(`起動完了 ポート ${port}`, 'ready');
   document.getElementById('btnStart').textContent = 'サーバー再起動';
   document.getElementById('btnStart').disabled = false;
+  
   const btnMain = document.getElementById('btnMain');
   const btnMainV2 = document.getElementById('btnMainV2');
   const btnDisplay = document.getElementById('btnDisplay');
   if (btnMain) btnMain.disabled = false;
   if (btnMainV2) btnMainV2.disabled = false;
   if (btnDisplay) btnDisplay.disabled = false;
-  
-  // サーバーアドレス情報を更新
-  const serverUrl = `http://${ip}:${port}`;
-  document.getElementById('server-url-display').textContent = serverUrl;
-  document.getElementById('address-display-area').style.display = 'flex';
-  const addressInfo = document.querySelector('.server-address-info');
-  addressInfo.classList.remove('inactive');
-  addressInfo.classList.add('running');
-  const addressStatus = document.getElementById('server-address-status');
-  addressStatus.textContent = `● サーバー起動中 (ポート ${port})`;
-  addressStatus.classList.remove('stopped');
-  addressStatus.classList.add('running');
-  
-  updateQrCode(serverUrl);
 
-  document.getElementById('btnCopyUrlMain').onclick = () => {
-    navigator.clipboard.writeText(serverUrl).then(() => {
-      const btn = document.getElementById('btnCopyUrlMain');
-      btn.textContent = 'コピー済！';
-      setTimeout(() => { btn.textContent = 'コピー'; }, 1500);
-    });
-  };
-  
-  document.getElementById('btnQrMain').addEventListener('click', () => {
-    if (!currentServerUrl) return;
-    document.getElementById('qr-modal').classList.add('show');
-  });
-
-  // IPアドレスを固定表示（従来の要素もサポート）
+  // IPアドレスを固定表示
   const ipDisp = document.getElementById('ip-display');
   const ipUrl  = document.getElementById('ip-url');
+  const serverUrl = `http://${ip}:${port}`;
   ipDisp.style.display = 'flex';
   ipUrl.textContent = serverUrl;
 
@@ -647,19 +578,10 @@ ipcRenderer.on('server-ready', (e, { port, ip }) => {
 });
 
 ipcRenderer.on('server-error', (e, msg) => {
+  serverReady = false;
   setStatus('エラー: ' + msg, 'error');
   document.getElementById('btnStart').textContent = 'サーバー起動';
   document.getElementById('btnStart').disabled = false;
-  
-  // サーバーアドレス情報をリセット
-  document.getElementById('address-display-area').style.display = 'none';
-  const addressInfo = document.querySelector('.server-address-info');
-  addressInfo.classList.add('inactive');
-  addressInfo.classList.remove('running');
-  const addressStatus = document.getElementById('server-address-status');
-  addressStatus.textContent = `● サーバー起動失敗`;
-  addressStatus.classList.add('stopped');
-  addressStatus.classList.remove('running');
 });
 
 ipcRenderer.on('display-status', (e, open) => {
