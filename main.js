@@ -26,7 +26,20 @@ let displayWin  = null;
 let serverProcess = null;
 let currentBindIp = null;
 
-const defaultServerPath = path.join(__dirname, '..', 'kakimoni');
+function resolveDefaultServerPath() {
+  const current = path.join(__dirname, '..', 'server');
+  if (fs.existsSync(path.join(current, 'server.js'))) return current;
+
+  const renamed = path.join(__dirname, '..', 'kakimoni-server');
+  if (fs.existsSync(path.join(renamed, 'server.js'))) return renamed;
+
+  const legacy = path.join(__dirname, '..', 'kakimoni');
+  if (fs.existsSync(path.join(legacy, 'server.js'))) return legacy;
+
+  return current;
+}
+
+const defaultServerPath = resolveDefaultServerPath();
 
 function normalizeVersion(input) {
   const v = String(input || '').trim();
@@ -242,7 +255,7 @@ ipcMain.handle('get-interfaces', () => {
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog(launcherWin, {
     properties: ['openDirectory'],
-    title: 'kakimoniフォルダ（server.jsがある場所）を選択',
+    title: 'サーバーフォルダ（server.jsがある場所）を選択',
     defaultPath: defaultServerPath,
   });
   return result.canceled ? null : result.filePaths[0];
